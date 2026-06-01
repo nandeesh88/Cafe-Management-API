@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Brew & Co — Café Management</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --espresso: #2C1810;
+    --roast:    #5C3317;
+    --caramel:  #C47B2B;
+    --cream:    #F5EDD8;
+    --latte:    #E8D5B0;
+    --foam:     #FBF6EC;
+    --sage:     #7A9E7E;
+    --berry:    #A0424E;
+    --shadow:   rgba(44,24,16,0.15);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--foam);
+    color: var(--espresso);
+    min-height: 100vh;
+  }
+
+  /* ── Grain overlay ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 999;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    position: fixed; left: 0; top: 0; bottom: 0;
+    width: 240px;
+    background: var(--espresso);
+    padding: 36px 0 24px;
+    display: flex; flex-direction: column;
+    z-index: 100;
+    box-shadow: 4px 0 24px var(--shadow);
+  }
+
+  .brand {
+    padding: 0 28px 32px;
+    border-bottom: 1px solid rgba(245,237,216,0.1);
+  }
+  .brand-icon { font-size: 28px; margin-bottom: 6px; }
+  .brand h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px; font-weight: 700;
+    color: var(--cream); letter-spacing: -0.3px;
+  }
+  .brand p { font-size: 11px; color: var(--caramel); letter-spacing: 1.5px; text-transform: uppercase; margin-top: 2px; }
+
+  .nav { padding: 20px 0; flex: 1; }
+  .nav-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 28px; cursor: pointer;
+    color: rgba(245,237,216,0.6);
+    font-size: 13.5px; font-weight: 400;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .nav-item:hover { color: var(--cream); background: rgba(245,237,216,0.06); }
+  .nav-item.active {
+    color: var(--cream);
+    background: rgba(196,123,43,0.2);
+  }
+  .nav-item.active::before {
+    content: '';
+    position: absolute; left: 0; top: 0; bottom: 0;
+    width: 3px; background: var(--caramel);
+    border-radius: 0 2px 2px 0;
+  }
+  .nav-icon { font-size: 17px; width: 20px; text-align: center; }
+
+  .sidebar-footer {
+    padding: 20px 28px;
+    border-top: 1px solid rgba(245,237,216,0.1);
+  }
+  .api-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(122,158,126,0.2);
+    border: 1px solid rgba(122,158,126,0.4);
+    border-radius: 20px;
+    padding: 5px 12px;
+    font-size: 11px; color: var(--sage);
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--sage); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* ── Main ── */
+  .main { margin-left: 240px; padding: 40px 48px; min-height: 100vh; }
+
+  .page { display: none; animation: fadeIn 0.3s ease; }
+  .page.active { display: block; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+  .page-header { margin-bottom: 36px; }
+  .page-header h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 32px; font-weight: 700;
+    color: var(--espresso); line-height: 1.2;
+  }
+  .page-header p { color: var(--roast); font-size: 14px; margin-top: 6px; opacity: 0.8; }
+
+  /* ── Cards ── */
+  .card {
+    background: white;
+    border-radius: 16px;
+    padding: 28px;
+    box-shadow: 0 2px 16px var(--shadow);
+    margin-bottom: 24px;
+  }
+  .card-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 17px; font-weight: 700;
+    color: var(--espresso); margin-bottom: 20px;
+    display: flex; align-items: center; gap: 10px;
+  }
+
+  /* ── Grid ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; }
+
+  /* ── Stat cards ── */
+  .stat-card {
+    background: white;
+    border-radius: 14px;
+    padding: 24px;
+    box-shadow: 0 2px 12px var(--shadow);
+    position: relative; overflow: hidden;
+  }
+  .stat-card::after {
+    content: attr(data-emoji);
+    position: absolute; right: 16px; top: 16px;
+    font-size: 28px; opacity: 0.15;
+  }
+  .stat-label { font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--roast); opacity: 0.7; }
+  .stat-value { font-family: 'Playfair Display', serif; font-size: 36px; font-weight: 700; color: var(--espresso); margin-top: 6px; }
+  .stat-sub { font-size: 12px; color: var(--sage); margin-top: 4px; }
+
+  /* ── Form elements ── */
+  label { display: block; font-size: 12px; font-weight: 500; color: var(--roast); margin-bottom: 6px; letter-spacing: 0.3px; }
+  input, select, textarea {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1.5px solid var(--latte);
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    color: var(--espresso);
+    background: var(--foam);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--caramel);
+    box-shadow: 0 0 0 3px rgba(196,123,43,0.12);
+    background: white;
+  }
+  .form-row { margin-bottom: 16px; }
+  .form-group { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  /* ── Buttons ── */
+  .btn {
+    padding: 10px 22px;
+    border-radius: 10px;
+    border: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13.5px; font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .btn-primary { background: var(--caramel); color: white; }
+  .btn-primary:hover { background: var(--roast); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(196,123,43,0.4); }
+  .btn-dark { background: var(--espresso); color: var(--cream); }
+  .btn-dark:hover { background: var(--roast); transform: translateY(-1px); }
+  .btn-outline { background: transparent; color: var(--roast); border: 1.5px solid var(--latte); }
+  .btn-outline:hover { border-color: var(--caramel); color: var(--caramel); }
+  .btn-danger { background: var(--berry); color: white; }
+  .btn-danger:hover { background: #8a3540; }
+  .btn-sm { padding: 6px 14px; font-size: 12px; }
+  .btn-icon { padding: 7px 10px; }
+
+  /* ── Status badges ── */
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: 20px;
+    font-size: 11.5px; font-weight: 500; letter-spacing: 0.3px;
+  }
+  .badge-pending  { background: rgba(196,123,43,0.12); color: var(--caramel); }
+  .badge-preparing{ background: rgba(44,24,16,0.1);    color: var(--roast); }
+  .badge-done     { background: rgba(122,158,126,0.15); color: var(--sage); }
+
+  /* ── Table ── */
+  .table-wrap { overflow-x: auto; border-radius: 12px; }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { border-bottom: 2px solid var(--latte); }
+  thead th { padding: 12px 16px; text-align: left; font-size: 11px; font-weight: 500; letter-spacing: 1px; text-transform: uppercase; color: var(--roast); opacity: 0.7; }
+  tbody tr { border-bottom: 1px solid var(--foam); transition: background 0.15s; }
+  tbody tr:hover { background: var(--foam); }
+  tbody td { padding: 14px 16px; font-size: 13.5px; }
+
+  /* ── Items builder ── */
+  .items-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+  .item-row {
+    display: grid; grid-template-columns: 2fr 80px 100px 36px;
+    gap: 10px; align-items: center;
+  }
+  .remove-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--berry); font-size: 18px; padding: 4px;
+    border-radius: 6px; transition: background 0.15s;
+  }
+  .remove-btn:hover { background: rgba(160,66,78,0.1); }
+
+  /* ── Upload zone ── */
+  .upload-zone {
+    border: 2px dashed var(--latte);
+    border-radius: 14px;
+    padding: 40px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--foam);
+  }
+  .upload-zone:hover, .upload-zone.dragover {
+    border-color: var(--caramel);
+    background: rgba(196,123,43,0.04);
+  }
+  .upload-icon { font-size: 40px; margin-bottom: 10px; }
+  .upload-zone p { font-size: 14px; color: var(--roast); opacity: 0.7; }
+  .upload-zone span { font-size: 12px; color: var(--caramel); font-weight: 500; }
+  #upload-input { display: none; }
+
+  /* ── Preview ── */
+  #img-preview {
+    max-width: 200px; max-height: 200px;
+    border-radius: 12px; margin: 16px auto 0;
+    display: none; object-fit: cover;
+    box-shadow: 0 4px 16px var(--shadow);
+  }
+
+  /* ── AI result ── */
+  .ai-result {
+    background: linear-gradient(135deg, rgba(122,158,126,0.1), rgba(196,123,43,0.08));
+    border: 1.5px solid rgba(122,158,126,0.3);
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 16px;
+    display: none;
+  }
+  .ai-result h4 { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--sage); margin-bottom: 6px; }
+  .ai-item-name { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--espresso); }
+  .ai-note { font-size: 12px; color: var(--roast); opacity: 0.7; margin-top: 6px; }
+
+  /* ── Order detail panel ── */
+  .order-actions { display: flex; gap: 8px; align-items: center; }
+
+  /* ── Notification toast ── */
+  #toast-container { position: fixed; bottom: 28px; right: 28px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+  .toast {
+    background: var(--espresso);
+    color: var(--cream);
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 13px;
+    max-width: 320px;
+    box-shadow: 0 8px 24px rgba(44,24,16,0.3);
+    animation: slideUp 0.3s ease, fadeOut 0.4s ease 2.6s forwards;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .toast.success { border-left: 3px solid var(--sage); }
+  .toast.error   { border-left: 3px solid var(--berry); }
+  .toast.info    { border-left: 3px solid var(--caramel); }
+  @keyframes slideUp { from{transform:translateY(16px);opacity:0} to{transform:translateY(0);opacity:1} }
+  @keyframes fadeOut { to{opacity:0;transform:translateY(8px)} }
+
+  /* ── Loader ── */
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: inline-block;
+  }
+  @keyframes spin { to{transform:rotate(360deg)} }
+
+  /* ── Invoice display ── */
+  .invoice-line { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; }
+  .invoice-line.total { border-top: 2px solid var(--espresso); margin-top: 8px; padding-top: 14px; }
+  .invoice-line.total span { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700; }
+
+  /* ── Empty state ── */
+  .empty { text-align: center; padding: 48px; color: var(--roast); opacity: 0.5; }
+  .empty-icon { font-size: 40px; margin-bottom: 12px; }
+
+  /* ── Responsive ── */
+  @media (max-width: 900px) {
+    .sidebar { width: 200px; }
+    .main { margin-left: 200px; padding: 28px 24px; }
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-icon">☕</div>
+    <h1>Brew &amp; Co</h1>
+    <p>Management Suite</p>
+  </div>
+  <nav class="nav">
+    <div class="nav-item active" onclick="showPage('dashboard')"><span class="nav-icon">⌂</span> Dashboard</div>
+    <div class="nav-item" onclick="showPage('orders')"><span class="nav-icon">📋</span> Orders</div>
+    <div class="nav-item" onclick="showPage('billing')"><span class="nav-icon">🧾</span> Billing</div>
+    <div class="nav-item" onclick="showPage('inventory')"><span class="nav-icon">📦</span> Inventory</div>
+    <div class="nav-item" onclick="showPage('scan')"><span class="nav-icon">🤖</span> AI Scan</div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="api-badge"><span class="dot"></span> API Online</div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- DASHBOARD -->
+  <div id="page-dashboard" class="page active">
+    <div class="page-header">
+      <h2>Good morning ☕</h2>
+      <p>Here's what's brewing today at Brew &amp; Co</p>
+    </div>
+    <div class="grid-3" id="stats-grid">
+      <div class="stat-card" data-emoji="📋"><div class="stat-label">Total Orders</div><div class="stat-value" id="stat-orders">—</div><div class="stat-sub">All time</div></div>
+      <div class="stat-card" data-emoji="⏳"><div class="stat-label">Pending</div><div class="stat-value" id="stat-pending">—</div><div class="stat-sub">Awaiting preparation</div></div>
+      <div class="stat-card" data-emoji="📦"><div class="stat-label">Inventory Items</div><div class="stat-value" id="stat-inventory">—</div><div class="stat-sub">Tracked items</div></div>
+    </div>
+    <div class="grid-2" style="margin-top:8px">
+      <div class="card">
+        <div class="card-title">🕐 Recent Orders</div>
+        <div id="recent-orders-list"><div class="empty"><div class="empty-icon">☕</div><p>No orders yet</p></div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">📦 Low Stock</div>
+        <div id="low-stock-list"><div class="empty"><div class="empty-icon">✓</div><p>All stocked up!</p></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ORDERS -->
+  <div id="page-orders" class="page">
+    <div class="page-header">
+      <h2>Orders</h2>
+      <p>Manage all café orders and track their status</p>
+    </div>
+    <div class="grid-2">
+      <!-- Create order -->
+      <div class="card">
+        <div class="card-title">✚ New Order</div>
+        <div class="form-row"><label>Customer Name</label><input id="o-customer" placeholder="e.g. Priya Sharma" /></div>
+        <div class="card-title" style="font-size:13px;margin-bottom:12px;margin-top:4px">☕ Order Items</div>
+        <div class="items-list" id="items-list"></div>
+        <button class="btn btn-outline btn-sm" onclick="addItemRow()">+ Add Item</button>
+        <div style="margin-top:20px">
+          <button class="btn btn-primary" onclick="createOrder(this)">Place Order</button>
+        </div>
+      </div>
+      <!-- Filter -->
+      <div class="card">
+        <div class="card-title">🔍 Filter Orders</div>
+        <div class="form-row"><label>Status</label>
+          <select id="filter-status" onchange="loadOrders()">
+            <option value="">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="preparing">Preparing</option>
+            <option value="done">Done</option>
+          </select>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="loadOrders()">↻ Refresh</button>
+      </div>
+    </div>
+    <!-- Orders table -->
+    <div class="card">
+      <div class="card-title">All Orders</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Customer</th><th>Items</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+          <tbody id="orders-table-body"><tr><td colspan="6"><div class="empty"><div class="empty-icon">☕</div><p>Loading…</p></div></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- BILLING -->
+  <div id="page-billing" class="page">
+    <div class="page-header">
+      <h2>Billing</h2>
+      <p>Generate invoices with tax and discount logic</p>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">🧾 Generate Invoice</div>
+        <div class="form-row"><label>Order ID</label><input id="b-order-id" type="number" placeholder="Enter order ID" /></div>
+        <div class="form-group">
+          <div class="form-row"><label>Tax Rate (%)</label><input id="b-tax" type="number" value="18" min="0" max="100" /></div>
+          <div class="form-row"><label>Discount Type</label>
+            <select id="b-discount-type">
+              <option value="">No Discount</option>
+              <option value="percentage">Percentage (%)</option>
+              <option value="fixed">Fixed Amount (₹)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row"><label>Discount Value</label><input id="b-discount-value" type="number" value="0" min="0" /></div>
+        <button class="btn btn-primary" onclick="generateInvoice(this)">Generate Invoice</button>
+      </div>
+      <div class="card" id="invoice-display">
+        <div class="card-title">Invoice Preview</div>
+        <div class="empty"><div class="empty-icon">🧾</div><p>Generate an invoice to preview it here</p></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">All Invoices</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Invoice #</th><th>Order</th><th>Subtotal</th><th>Discount</th><th>Tax</th><th>Total</th><th>Date</th></tr></thead>
+          <tbody id="invoices-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- INVENTORY -->
+  <div id="page-inventory" class="page">
+    <div class="page-header">
+      <h2>Inventory</h2>
+      <p>Track all café items, manually or via AI scan</p>
+    </div>
+    <div class="card">
+      <div class="card-title">All Items <button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="loadInventory()">↻ Refresh</button></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Item Name</th><th>Qty</th><th>Source</th><th>Last Updated</th><th>Actions</th></tr></thead>
+          <tbody id="inventory-table-body"><tr><td colspan="6"><div class="empty"><div class="empty-icon">📦</div><p>Loading…</p></div></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI SCAN -->
+  <div id="page-scan" class="page">
+    <div class="page-header">
+      <h2>AI Inventory Scan</h2>
+      <p>Upload a photo — our AI identifies the item and logs it automatically</p>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">📸 Upload Image</div>
+        <div class="upload-zone" id="upload-zone" onclick="document.getElementById('upload-input').click()"
+          ondragover="event.preventDefault();this.classList.add('dragover')"
+          ondragleave="this.classList.remove('dragover')"
+          ondrop="handleDrop(event)">
+          <div class="upload-icon">🖼️</div>
+          <p>Click to upload or drag &amp; drop</p>
+          <span>JPG, PNG, WEBP up to 10MB</span>
+        </div>
+        <input type="file" id="upload-input" accept="image/*" onchange="handleFileSelect(event)" />
+        <img id="img-preview" alt="Preview" />
+        <div style="margin-top:20px">
+          <button class="btn btn-dark" id="scan-btn" onclick="scanImage(this)" disabled>
+            🤖 Identify &amp; Add to Inventory
+          </button>
+        </div>
+        <div id="ai-result" class="ai-result">
+          <h4>AI Identified</h4>
+          <div class="ai-item-name" id="ai-item-name">—</div>
+          <div class="ai-note" id="ai-note">—</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">💡 How it works</div>
+        <div style="display:flex;flex-direction:column;gap:18px;margin-top:8px">
+          <div style="display:flex;gap:14px;align-items:flex-start">
+            <div style="background:var(--caramel);color:white;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">1</div>
+            <div><strong>Upload a photo</strong><br><span style="font-size:13px;opacity:0.7">Take or upload any image of a café item — beans, milk, sugar, equipment</span></div>
+          </div>
+          <div style="display:flex;gap:14px;align-items:flex-start">
+            <div style="background:var(--caramel);color:white;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">2</div>
+            <div><strong>AI identifies it</strong><br><span style="font-size:13px;opacity:0.7">Claude Vision analyses the image and returns the item name</span></div>
+          </div>
+          <div style="display:flex;gap:14px;align-items:flex-start">
+            <div style="background:var(--caramel);color:white;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">3</div>
+            <div><strong>Logged automatically</strong><br><span style="font-size:13px;opacity:0.7">Item is added to inventory — edit quantity or name any time</span></div>
+          </div>
+        </div>
+        <div style="margin-top:28px;padding:16px;background:var(--foam);border-radius:10px;border:1px solid var(--latte)">
+          <p style="font-size:12px;color:var(--roast);opacity:0.7">Requires <code>ANTHROPIC_API_KEY</code> to be set in your environment. Uses <strong>claude-haiku-4-5</strong> — fast and cost-effective.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<div id="toast-container"></div>
+
+<script>
+const API = '';
+let selectedFile = null;
+
+// ─── Navigation ────────────────────────────────────────────────────────
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (name === 'dashboard') loadDashboard();
+  if (name === 'orders') { addItemRow(); loadOrders(); }
+  if (name === 'billing') loadInvoices();
+  if (name === 'inventory') loadInventory();
+}
+
+// ─── Toast ─────────────────────────────────────────────────────────────
+function toast(msg, type = 'success') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  const icons = { success: '✓', error: '✕', info: 'ℹ' };
+  el.innerHTML = `<span>${icons[type]}</span><span>${msg}</span>`;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+}
+
+// ─── API helper ────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const opts = { method, headers: {} };
+  if (body && !(body instanceof FormData)) {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  } else if (body) {
+    opts.body = body;
+  }
+  const res = await fetch(API + path, opts);
+  const data = res.status === 204 ? null : await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.detail || `HTTP ${res.status}`);
+  return data;
+}
+
+// ─── Dashboard ─────────────────────────────────────────────────────────
+async function loadDashboard() {
+  try {
+    const [orders, inv] = await Promise.all([api('GET', '/orders/'), api('GET', '/inventory/')]);
+    document.getElementById('stat-orders').textContent = orders.length;
+    document.getElementById('stat-pending').textContent = orders.filter(o => o.status === 'pending').length;
+    document.getElementById('stat-inventory').textContent = inv.length;
+
+    const recent = orders.slice(0, 5);
+    const roEl = document.getElementById('recent-orders-list');
+    roEl.innerHTML = recent.length ? recent.map(o => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--foam)">
+        <div><strong>#${o.id}</strong> · ${o.customer_name}</div>
+        <span class="badge badge-${o.status}">${o.status}</span>
+      </div>`).join('') : '<div class="empty"><div class="empty-icon">☕</div><p>No orders yet</p></div>';
+
+    const low = inv.filter(i => i.quantity <= 2);
+    const lsEl = document.getElementById('low-stock-list');
+    lsEl.innerHTML = low.length ? low.map(i => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--foam)">
+        <div>${i.item_name}</div>
+        <span class="badge badge-pending">Qty: ${i.quantity}</span>
+      </div>`).join('') : '<div class="empty"><div class="empty-icon">✓</div><p>All stocked up!</p></div>';
+  } catch(e) { toast('Failed to load dashboard', 'error'); }
+}
+
+// ─── Orders ────────────────────────────────────────────────────────────
+function addItemRow() {
+  const list = document.getElementById('items-list');
+  const row = document.createElement('div');
+  row.className = 'item-row';
+  row.innerHTML = `
+    <input placeholder="Item name (e.g. Espresso)" />
+    <input type="number" placeholder="Qty" value="1" min="1" />
+    <input type="number" placeholder="Price ₹" min="0.01" step="0.01" />
+    <button class="remove-btn" onclick="this.parentElement.remove()">×</button>`;
+  list.appendChild(row);
+}
+
+async function createOrder(btn) {
+  const name = document.getElementById('o-customer').value.trim();
+  if (!name) return toast('Customer name is required', 'error');
+  const rows = document.querySelectorAll('#items-list .item-row');
+  if (!rows.length) return toast('Add at least one item', 'error');
+  const items = [];
+  for (const row of rows) {
+    const [n,q,p] = row.querySelectorAll('input');
+    if (!n.value.trim()) return toast('Item name cannot be empty', 'error');
+    if (!q.value || +q.value < 1) return toast('Quantity must be at least 1', 'error');
+    if (!p.value || +p.value <= 0) return toast('Price must be positive', 'error');
+    items.push({ item_name: n.value.trim(), quantity: +q.value, unit_price: +p.value });
+  }
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Placing…';
+  try {
+    const order = await api('POST', '/orders/', { customer_name: name, items });
+    toast(`Order #${order.id} placed for ${name}!`);
+    document.getElementById('o-customer').value = '';
+    document.getElementById('items-list').innerHTML = '';
+    addItemRow();
+    loadOrders();
+  } catch(e) { toast(e.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = 'Place Order'; }
+}
+
+async function loadOrders() {
+  const status = document.getElementById('filter-status').value;
+  const url = '/orders/' + (status ? `?status_filter=${status}` : '');
+  try {
+    const orders = await api('GET', url);
+    const tbody = document.getElementById('orders-table-body');
+    if (!orders.length) {
+      tbody.innerHTML = '<tr><td colspan="6"><div class="empty"><div class="empty-icon">☕</div><p>No orders found</p></div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = orders.map(o => {
+      const subtotal = o.items.reduce((s,i) => s + i.unit_price*i.quantity, 0).toFixed(2);
+      const next = { pending:'preparing', preparing:'done' }[o.status];
+      const nextLabel = { pending:'▶ Start Preparing', preparing:'✓ Mark Done' }[o.status] || '';
+      return `<tr>
+        <td>#${o.id}</td>
+        <td>${o.customer_name}</td>
+        <td>${o.items.map(i=>`${i.item_name} ×${i.quantity}`).join(', ')}<br><small style="color:var(--caramel)">₹${subtotal}</small></td>
+        <td><span class="badge badge-${o.status}">${o.status}</span></td>
+        <td>${new Date(o.created_at+'Z').toLocaleString('en-IN',{dateStyle:'short',timeStyle:'short'})}</td>
+        <td class="order-actions">
+          ${next ? `<button class="btn btn-sm btn-primary" onclick="advanceOrder(${o.id},'${next}',this)">${nextLabel}</button>` : ''}
+          ${o.status==='pending' ? `<button class="btn btn-sm btn-danger" onclick="deleteOrder(${o.id},this)">Delete</button>` : ''}
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(e) { toast('Failed to load orders', 'error'); }
+}
+
+async function advanceOrder(id, status, btn) {
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  try {
+    await api('PATCH', `/orders/${id}/status`, { status });
+    toast(`Order #${id} moved to "${status}"`);
+    loadOrders();
+  } catch(e) { toast(e.message, 'error'); btn.disabled = false; }
+}
+
+async function deleteOrder(id, btn) {
+  if (!confirm(`Delete order #${id}?`)) return;
+  btn.disabled = true;
+  try {
+    await api('DELETE', `/orders/${id}`);
+    toast(`Order #${id} deleted`);
+    loadOrders();
+  } catch(e) { toast(e.message, 'error'); btn.disabled = false; }
+}
+
+// ─── Billing ───────────────────────────────────────────────────────────
+async function generateInvoice(btn) {
+  const orderId = document.getElementById('b-order-id').value;
+  const tax = +document.getElementById('b-tax').value || 0;
+  const discountType = document.getElementById('b-discount-type').value || null;
+  const discountValue = +document.getElementById('b-discount-value').value || 0;
+  if (!orderId) return toast('Enter an order ID', 'error');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Generating…';
+  try {
+    const inv = await api('POST', `/billing/invoice/${orderId}`, {
+      tax_rate: tax,
+      discount_type: discountType || undefined,
+      discount_value: discountValue
+    });
+    renderInvoicePreview(inv);
+    toast(`Invoice #${inv.id} generated!`);
+    loadInvoices();
+  } catch(e) { toast(e.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = 'Generate Invoice'; }
+}
+
+function renderInvoicePreview(inv) {
+  const el = document.getElementById('invoice-display');
+  const fmt = v => `₹${v.toFixed(2)}`;
+  el.innerHTML = `
+    <div class="card-title">Invoice #${inv.id} — Order #${inv.order_id}</div>
+    <div style="font-size:12px;color:var(--roast);opacity:0.6;margin-bottom:16px">${new Date(inv.created_at+'Z').toLocaleString('en-IN')}</div>
+    <div class="invoice-line"><span>Subtotal</span><span>${fmt(inv.subtotal)}</span></div>
+    ${inv.discount_amount > 0 ? `<div class="invoice-line" style="color:var(--sage)"><span>Discount (${inv.discount_type === 'percentage' ? inv.discount_value+'%' : fmt(inv.discount_value)})</span><span>− ${fmt(inv.discount_amount)}</span></div>` : ''}
+    ${inv.tax_amount > 0 ? `<div class="invoice-line" style="color:var(--roast);opacity:0.7"><span>Tax (${inv.tax_rate}%)</span><span>+ ${fmt(inv.tax_amount)}</span></div>` : ''}
+    <div class="invoice-line total"><span>Total</span><span>${fmt(inv.total)}</span></div>`;
+}
+
+async function loadInvoices() {
+  try {
+    const invs = await api('GET', '/billing/invoices');
+    const tbody = document.getElementById('invoices-table-body');
+    if (!invs.length) {
+      tbody.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="empty-icon">🧾</div><p>No invoices yet</p></div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = invs.map(i => `<tr>
+      <td>#${i.id}</td><td>#${i.order_id}</td>
+      <td>₹${i.subtotal.toFixed(2)}</td>
+      <td>${i.discount_amount > 0 ? `−₹${i.discount_amount.toFixed(2)}` : '—'}</td>
+      <td>₹${i.tax_amount.toFixed(2)}</td>
+      <td><strong>₹${i.total.toFixed(2)}</strong></td>
+      <td>${new Date(i.created_at+'Z').toLocaleString('en-IN',{dateStyle:'short'})}</td>
+    </tr>`).join('');
+  } catch(e) { toast('Failed to load invoices','error'); }
+}
+
+// ─── Inventory ─────────────────────────────────────────────────────────
+async function loadInventory() {
+  try {
+    const items = await api('GET', '/inventory/');
+    const tbody = document.getElementById('inventory-table-body');
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="6"><div class="empty"><div class="empty-icon">📦</div><p>No inventory items yet — try AI Scan!</p></div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = items.map(i => `<tr>
+      <td>#${i.id}</td>
+      <td id="name-${i.id}">${i.item_name}</td>
+      <td id="qty-${i.id}">${i.quantity}</td>
+      <td><span class="badge ${i.ai_identified==='Y' ? 'badge-preparing' : 'badge-done'}">${i.ai_identified==='Y' ? '🤖 AI' : '✍ Manual'}</span></td>
+      <td>${new Date(i.updated_at+'Z').toLocaleString('en-IN',{dateStyle:'short',timeStyle:'short'})}</td>
+      <td style="display:flex;gap:6px">
+        <button class="btn btn-sm btn-outline" onclick="editItem(${i.id})">Edit</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteItem(${i.id},this)">Delete</button>
+      </td>
+    </tr>`).join('');
+  } catch(e) { toast('Failed to load inventory','error'); }
+}
+
+async function editItem(id) {
+  const name = prompt('New item name:', document.getElementById(`name-${id}`).textContent);
+  if (name === null) return;
+  const qty = prompt('New quantity:', document.getElementById(`qty-${id}`).textContent);
+  if (qty === null) return;
+  try {
+    await api('PATCH', `/inventory/${id}`, { item_name: name.trim(), quantity: +qty });
+    toast('Item updated');
+    loadInventory();
+  } catch(e) { toast(e.message,'error'); }
+}
+
+async function deleteItem(id, btn) {
+  if (!confirm(`Delete inventory item #${id}?`)) return;
+  btn.disabled = true;
+  try {
+    await api('DELETE', `/inventory/${id}`);
+    toast('Item removed from inventory');
+    loadInventory();
+  } catch(e) { toast(e.message,'error'); btn.disabled = false; }
+}
+
+// ─── AI Scan ───────────────────────────────────────────────────────────
+function handleFileSelect(e) { setFile(e.target.files[0]); }
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.remove('dragover');
+  setFile(e.dataTransfer.files[0]);
+}
+function setFile(file) {
+  if (!file) return;
+  selectedFile = file;
+  const preview = document.getElementById('img-preview');
+  preview.src = URL.createObjectURL(file);
+  preview.style.display = 'block';
+  document.getElementById('scan-btn').disabled = false;
+  document.getElementById('ai-result').style.display = 'none';
+}
+
+async function scanImage(btn) {
+  if (!selectedFile) return toast('Please select an image first','error');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Analysing with AI…';
+  const form = new FormData();
+  form.append('file', selectedFile);
+  try {
+    const result = await api('POST', '/inventory/scan', form);
+    document.getElementById('ai-item-name').textContent = result.identified_item;
+    document.getElementById('ai-note').textContent = result.confidence_note;
+    document.getElementById('ai-result').style.display = 'block';
+    toast(`Added "${result.identified_item}" to inventory!`);
+  } catch(e) { toast(e.message, 'error'); }
+  finally { btn.disabled = false; btn.innerHTML = '🤖 Identify &amp; Add to Inventory'; }
+}
+
+// ─── Init ──────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  loadDashboard();
+  addItemRow();
+});
+</script>
+</body>
+</html>
