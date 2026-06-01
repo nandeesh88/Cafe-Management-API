@@ -2,6 +2,22 @@
 
 A backend MVP for managing café operations — orders, billing, and AI-powered inventory scanning — built with **FastAPI** and **SQLite**, with a custom frontend UI.
 
+## Demo
+
+Watch the demo video here: [Café Management API Demo](https://drive.google.com/file/d/11A7Xq2ymOZ933OyvIhfdNEpzaGni_1v9/view?usp=drive_link)
+
+## Tech Stack
+
+| Layer | Choice |
+|-------|--------|
+| Framework | FastAPI 0.115 |
+| ORM | SQLAlchemy 2.0 |
+| Database | SQLite (dev) / PostgreSQL (prod) |
+| Validation | Pydantic v2 |
+| AI Vision | Anthropic Claude Haiku |
+| Runtime | Uvicorn |
+| Container | Docker + Compose |
+
 ---
 
 ## Quick Start
@@ -111,17 +127,3 @@ A single `docker compose up` gives you both the API and a working UI at port 800
 - **Websockets** — real-time order status updates pushed to the kitchen UI
 - **Item quantity management** — auto-decrement inventory when an order is placed
 - **Tests** — pytest suite covering the billing calculation logic, status transitions, and the AI fallback path
-
----
-
-## Tech Stack
-
-| Layer | Choice |
-|-------|--------|
-| Framework | FastAPI 0.115 |
-| ORM | SQLAlchemy 2.0 |
-| Database | SQLite (dev) / PostgreSQL (prod) |
-| Validation | Pydantic v2 |
-| AI Vision | Anthropic Claude Haiku |
-| Runtime | Uvicorn |
-| Container | Docker + Compose |
